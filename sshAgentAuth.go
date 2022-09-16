@@ -6,26 +6,11 @@ import (
 	"fmt"
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/agent"
-	"golang.org/x/exp/slices"
 	"log"
 	"net"
 	"os"
 	"reflect"
 )
-
-var authorized_keys = []string{
-	// ~/.ssh/id_rsa.pub
-	// "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDQjPjLr8UkWHBQc8G/FdAAJDSvVdLm2WUNV/evkOnfL1FEzgOIH/3QqE6ulRzh/c9VzLLDZh4wlKfZ9yebbEVoqBYNop0hMlDVZG3GXMl355FHHIxe9NMpJva4ce6OtEi5ymgyvhynv24UXmbU6hW/4eN8tVMcAgF0qKhtTC2NYVZj8D5UVv1jWymEWgHPxki3RAkxm5YIFVB72bn6vxBfASwX9T/TyN1pdWJXzbk31SMOzQYUlKSWYvZoFIAzObf6JXYatqnhjIzoIeX3auuJKOcGpspUvFcDgabKWrbMfmoO2ePUI5XFRM74JgS5EnQl1ABYBpej3NpENBj93RaZ korfuri@kelyus",
-	// ecdsa-sk ./key
-	// "sk-ecdsa-sha2-nistp256@openssh.com AAAAInNrLWVjZHNhLXNoYTItbmlzdHAyNTZAb3BlbnNzaC5jb20AAAAIbmlzdHAyNTYAAABBBDaR5qqYEAkTj1HesARmHbmhHeVCZOAUIDB3bPZBj3Y7ByFJoGXWZl7LT1h4uyRT7drZxW/qmCXcf6rNAPA6//gAAAAEc3NoOg== korfuri@kelyus",
-	// ./key2.pub
-	// "ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBO6qt7LY67KDBl+d5cRLG1vofsSQyiXCp8W+mbwN92o1TdcoKOwsGBRiSwBiVbVF2TDNaXzUv4QcZW9QeE4JRtk= korfuri@kelyus",
-	// ca.pub as CA
-	// "cert-authority ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBNId6CMSyOCyWRCipF8/mp2R5fwG5T5qdpQRbiTV6thVkjZl5znlNjwRrwAtvGCpszvDRSu3vueYWi021WGJg2U= korfuri@kelyus",
-	"cert-authority,principals=\"sudoer,root\" ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBNId6CMSyOCyWRCipF8/mp2R5fwG5T5qdpQRbiTV6thVkjZl5znlNjwRrwAtvGCpszvDRSu3vueYWi021WGJg2U= korfuri@kelyus",
-	// ca2.pub as CA
-	// "cert-authority ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBGZycAovA8cIQSvEJJze24R6OvJxOrRuHLcqjfHDvjHdWHKcjNrW/ssAAjPMIHSkC0jTAhcyf/pgP1lFHYEeSH4= korfuri@kelyus",
-}
 
 func GetAgentOrDie() agent.Agent {
 	socket := os.Getenv("SSH_AUTH_SOCK")
@@ -47,28 +32,6 @@ type AuthorizedKey struct {
 type AgentAuth struct {
 	Agent          agent.Agent
 	AuthorizedKeys []AuthorizedKey
-}
-
-// LoadAuthorizedKeys parses all authorized_keys and returns them as
-// an array of AuthorizedKey
-func LoadAuthorizedKeys() ([]AuthorizedKey, error) {
-	serverKeys := make([]AuthorizedKey, len(authorized_keys))
-	for i, ak := range authorized_keys {
-		pubKey, _, options, rest, err := ssh.ParseAuthorizedKey([]byte(ak))
-		if err != nil {
-			return nil, err
-		}
-		if rest != nil {
-			log.Printf("Unknown rest when parsing key %v, skipping: %v", ak, rest)
-			continue
-		}
-		serverKeys[i] = AuthorizedKey{
-			Key:           pubKey,
-			CertAuthority: slices.Contains(options, "cert-authority"),
-			Principals:    []string{}, // TODO
-		}
-	}
-	return serverKeys, nil
 }
 
 type FakeConn struct {

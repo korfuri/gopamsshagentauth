@@ -106,7 +106,7 @@ func TestFilterCandidates(t *testing.T) {
 		{
 			// A principal-less cert can impersonate all
 			// principals, cf PROTOCOL.certkeys
-			name:             "one agent cert without principals, matching authorized CA but expecting a principal, one candidate",
+			name:             "one agent cert without principals, matching authorized CA expecting a principal, one candidate",
 			agentKeys:        []agent.AddedKey{{PrivateKey: testPrivateKeys["user1"], Certificate: user1_cert_by_ca_no_principals}},
 			authorizedKeys:   []gpsa.AuthorizedKey{{Key: testPublicKeys["ca"], CertAuthority: true, Principals: []string{"sudoer"}}},
 			expectCandidates: []ssh.PublicKey{user1_cert_by_ca_no_principals},
@@ -114,7 +114,7 @@ func TestFilterCandidates(t *testing.T) {
 		{
 			// If we're not expecting any principals, only
 			// principal-less certs are accepted
-			name:             "one agent cert without principals, matching authorized CA not expecting a principal, no candidates",
+			name:             "one agent cert without principals, matching authorized CA not expecting a principal, one candidate",
 			agentKeys:        []agent.AddedKey{{PrivateKey: testPrivateKeys["user1"], Certificate: user1_cert_by_ca_no_principals}},
 			authorizedKeys:   []gpsa.AuthorizedKey{{Key: testPublicKeys["ca"], CertAuthority: true, Principals: []string{}}},
 			expectCandidates: []ssh.PublicKey{user1_cert_by_ca_no_principals},
@@ -125,7 +125,6 @@ func TestFilterCandidates(t *testing.T) {
 			authorizedKeys:   []gpsa.AuthorizedKey{{Key: testPublicKeys["ca"], CertAuthority: true, Principals: []string{}}},
 			expectCandidates: []ssh.PublicKey{},
 		},
-
 	}
 	// Generate test cases for each private/public key loaded from
 	// testdata.
