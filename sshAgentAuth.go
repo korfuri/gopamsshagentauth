@@ -8,20 +8,8 @@ import (
 	"golang.org/x/crypto/ssh/agent"
 	"log"
 	"net"
-	"os"
 	"reflect"
 )
-
-func GetAgentOrDie() agent.Agent {
-	socket := os.Getenv("SSH_AUTH_SOCK")
-	// TODO permission checks on socket
-	conn, err := net.Dial("unix", socket)
-	if err != nil {
-		log.Fatalf("Failed to open SSH_AUTH_SOCK: %v", err)
-	}
-	agentClient := agent.NewClient(conn)
-	return agentClient
-}
 
 type AuthorizedKey struct {
 	Key           ssh.PublicKey

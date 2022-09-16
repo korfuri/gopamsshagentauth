@@ -2,7 +2,7 @@ package main
 
 import (
 	"log"
-	
+
 	"github.com/korfuri/gopamsshagentauth"
 )
 
@@ -20,17 +20,20 @@ cert-authority,principals="sudoer,root" ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTIt
 # "cert-authority ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBGZycAovA8cIQSvEJJze24R6OvJxOrRuHLcqjfHDvjHdWHKcjNrW/ssAAjPMIHSkC0jTAhcyf/pgP1lFHYEeSH4= korfuri@kelyus
 `
 
-
 func main() {
 	ak, err := gopamsshagentauth.LoadAuthorizedKeys([]byte(authorized_keys))
 	if err != nil {
-		log.Fatalf("loadAuthorizedkeys: %v", err)
+		log.Fatalf("LoadAuthorizedkeys: %v", err)
+	}
+	agent, closer, err := gopamsshagentauth.GetAgentFromEnv()
+	defer closer()
+	if err != nil {
+		log.Fatalf("GetAgentFromEnv: %v", err)
 	}
 	a := gopamsshagentauth.AgentAuth{
-		Agent: gopamsshagentauth.GetAgentOrDie(),
+		Agent:          agent,
 		AuthorizedKeys: ak,
 	}
-	//TODO defer ag.Close()
 
 	candidates, err := a.FilterCandidates()
 	if err != nil {
