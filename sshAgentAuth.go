@@ -9,6 +9,7 @@ import (
 	"log"
 	"net"
 	"reflect"
+	"time"
 )
 
 type AuthorizedKey struct {
@@ -38,6 +39,8 @@ func (c *FakeConn) LocalAddr() net.Addr {
 	return addr
 }
 
+var TestOnlyClockFunc func() time.Time = nil
+
 // attemptCandidate returns true if a given agent key is a valid candidate
 func (a AgentAuth) attemptCandidate(k *agent.Key) bool {
 	// Unmarshaling and re-marshaling the agent key lets us use it
@@ -61,7 +64,8 @@ func (a AgentAuth) attemptCandidate(k *agent.Key) bool {
 					return nil, fmt.Errorf("pubkey does not match")
 				}
 			},
-			// TODO isRevoked
+			Clock: TestOnlyClockFunc,
+			// TODO: support KRLs and implement IsRevoked.
 		}
 
 		// If no principals are expected, the only valid certs

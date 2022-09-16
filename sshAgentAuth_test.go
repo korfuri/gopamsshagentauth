@@ -11,6 +11,7 @@ import (
 	"crypto/rand"
 	"fmt"
 	"testing"
+	"time"
 )
 
 func equalCandidates(t *testing.T, expect []ssh.PublicKey, actual []*agent.Key) {
@@ -30,6 +31,12 @@ func TestFilterCandidates(t *testing.T) {
 		expectCandidates []ssh.PublicKey
 	}
 
+	// Fake the clock
+	gpsa.TestOnlyClockFunc = func() time.Time {
+		return time.Date(2020, time.July, 03, 10, 13, 26, 0, time.UTC)
+	}
+	defer func() { gpsa.TestOnlyClockFunc = nil }()
+
 	// Create some certificates for our testcases
 	user1_cert_by_ca := &ssh.Certificate{
 		ValidPrincipals: []string{"user1", "sudoer"},
@@ -47,6 +54,14 @@ func TestFilterCandidates(t *testing.T) {
 		CertType:        ssh.UserCert,
 	}
 	require.NoError(t, user1_cert_by_ca_no_principals.SignCert(rand.Reader, testSigners["ca"]))
+	user1_cert_by_ca_expired := &ssh.Certificate{
+		ValidPrincipals: []string{"sudoer"},
+		Key:             testPublicKeys["user1"],
+		SignatureKey:    testPublicKeys["ca"],
+		ValidBefore:     uint64(time.Date(2019, time.January, 01, 0, 0, 0, 0, time.UTC).Unix()),
+		CertType:        ssh.UserCert,
+	}
+	require.NoError(t, user1_cert_by_ca_expired.SignCert(rand.Reader, testSigners["ca"]))
 	user1_cert_unsigned := &ssh.Certificate{
 		ValidPrincipals: []string{"user1", "sudoer"},
 		Key:             testPublicKeys["user1"],
@@ -120,9 +135,15 @@ func TestFilterCandidates(t *testing.T) {
 			expectCandidates: []ssh.PublicKey{user1_cert_by_ca_no_principals},
 		},
 		{
-			name:             "one agent cert with princials, matching authorized CA expecting no principals, no candidate",
+			name:             "one agent cert with principals, matching authorized CA expecting no principals, no candidate",
 			agentKeys:        []agent.AddedKey{{PrivateKey: testPrivateKeys["user1"], Certificate: user1_cert_by_ca}},
 			authorizedKeys:   []gpsa.AuthorizedKey{{Key: testPublicKeys["ca"], CertAuthority: true, Principals: []string{}}},
+			expectCandidates: []ssh.PublicKey{},
+		},
+		{
+			name:             "one agent cert that is expired",
+			agentKeys:        []agent.AddedKey{{PrivateKey: testPrivateKeys["user1"], Certificate: user1_cert_by_ca_expired}},
+			authorizedKeys:   []gpsa.AuthorizedKey{{Key: testPublicKeys["ca"], CertAuthority: true, Principals: []string{"sudoer"}}},
 			expectCandidates: []ssh.PublicKey{},
 		},
 	}
