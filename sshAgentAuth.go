@@ -77,8 +77,10 @@ func (a AgentAuth) attemptCandidate(k *agent.Key) bool {
 			perms, err := checker.Authenticate(&c, parsedKey)
 			if err != nil {
 				log.Printf("checker.Authenticate: %v, skipping", err)
+				continue
 			} else if perms != nil && len(perms.CriticalOptions) > 0 {
 				log.Printf("certificate has unsupported CriticalOptions, skipping")
+				continue
 			} else {
 				accepted = true
 			}
@@ -128,7 +130,7 @@ func (a AgentAuth) FilterCandidates() ([]*agent.Key, error) {
 // until there are no candidates remaining (and returns false)
 func (a AgentAuth) ChallengeKeys(candidates []*agent.Key) (bool, error) {
 	for _, k := range candidates {
-		log.Printf("verifying agent key %v", k)
+		log.Printf("verifying agent key [%.40v]", k)
 		challenge := []byte("hello world") // TODO
 		sig, err := a.Agent.Sign(k, challenge)
 		if err != nil {

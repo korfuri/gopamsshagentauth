@@ -1,38 +1,91 @@
 package main
 
 import (
+	"flag"
 	"log"
+	"os"
+	"strings"
 
-	"github.com/korfuri/gopamsshagentauth"
+	gpsa "github.com/korfuri/gopamsshagentauth"
 )
 
-var authorized_keys = `
-## ~/.ssh/id_rsa.pub
-# ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDQjPjLr8UkWHBQc8G/FdAAJDSvVdLm2WUNV/evkOnfL1FEzgOIH/3QqE6ulRzh/c9VzLLDZh4wlKfZ9yebbEVoqBYNop0hMlDVZG3GXMl355FHHIxe9NMpJva4ce6OtEi5ymgyvhynv24UXmbU6hW/4eN8tVMcAgF0qKhtTC2NYVZj8D5UVv1jWymEWgHPxki3RAkxm5YIFVB72bn6vxBfASwX9T/TyN1pdWJXzbk31SMOzQYUlKSWYvZoFIAzObf6JXYatqnhjIzoIeX3auuJKOcGpspUvFcDgabKWrbMfmoO2ePUI5XFRM74JgS5EnQl1ABYBpej3NpENBj93RaZ korfuri@kelyus
-## ecdsa-sk ./key
-# sk-ecdsa-sha2-nistp256@openssh.com AAAAInNrLWVjZHNhLXNoYTItbmlzdHAyNTZAb3BlbnNzaC5jb20AAAAIbmlzdHAyNTYAAABBBDaR5qqYEAkTj1HesARmHbmhHeVCZOAUIDB3bPZBj3Y7ByFJoGXWZl7LT1h4uyRT7drZxW/qmCXcf6rNAPA6//gAAAAEc3NoOg== korfuri@kelyus
-## ./key2.pub
-# ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBO6qt7LY67KDBl+d5cRLG1vofsSQyiXCp8W+mbwN92o1TdcoKOwsGBRiSwBiVbVF2TDNaXzUv4QcZW9QeE4JRtk= korfuri@kelyus
-## ca.pub as CA
-# cert-authority ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBNId6CMSyOCyWRCipF8/mp2R5fwG5T5qdpQRbiTV6thVkjZl5znlNjwRrwAtvGCpszvDRSu3vueYWi021WGJg2U= korfuri@kelyus
-cert-authority,principals="sudoer,root" ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBNId6CMSyOCyWRCipF8/mp2R5fwG5T5qdpQRbiTV6thVkjZl5znlNjwRrwAtvGCpszvDRSu3vueYWi021WGJg2U= korfuri@kelyus
-## ca2.pub as CA
-# "cert-authority ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBGZycAovA8cIQSvEJJze24R6OvJxOrRuHLcqjfHDvjHdWHKcjNrW/ssAAjPMIHSkC0jTAhcyf/pgP1lFHYEeSH4= korfuri@kelyus
-`
+var (
+	authorized_keys_file       string
+	ca_keys_file               string
+	authorized_principals      string
+	authorized_principals_file string
+)
+
+func init() {
+	flag.StringVar(&authorized_keys_file, "k", "", "path to an authorized_keys file")
+	flag.StringVar(&ca_keys_file, "c", "", "path to a TrustedUserCAKeys file")
+	flag.StringVar(&authorized_principals, "p", "", "comma-separated list of authorized principals")
+	flag.StringVar(&authorized_principals_file, "P", "", "path to a file containing a list of authorized principals")
+}
 
 func main() {
-	ak, err := gopamsshagentauth.LoadAuthorizedKeys([]byte(authorized_keys))
-	if err != nil {
-		log.Fatalf("LoadAuthorizedkeys: %v", err)
+	flag.Parse()
+
+	if len(ca_keys_file) == 0 && (len(authorized_principals_file) > 0 || len(authorized_principals) > 0) {
+		log.Fatalf("Invalid usage: authorized principals require a CA to be set")
 	}
-	agent, closer, err := gopamsshagentauth.GetAgentFromEnv()
+	if len(ca_keys_file) == 0 && len(authorized_keys_file) == 0 {
+		log.Printf("Warning: no authorized keys nor trusted CA, no identity will be accepted")
+	}
+
+	// Load ca_keys
+	var authKeys []gpsa.AuthorizedKey
+	if len(ca_keys_file) > 0 {
+		c, err := os.ReadFile(ca_keys_file)
+		if err != nil {
+			log.Fatalf("Reading CA keys: %s", err)
+		}
+		authKeys, err = gpsa.LoadUserCAKeys(c)
+		if err != nil {
+			log.Fatalf("Loading CA keys: %s", err)
+		}
+	}
+	var principals []string
+	if len(authorized_principals) > 0 {
+		principals = strings.Split(authorized_principals, ",")
+	}
+	if len(authorized_principals_file) > 0 {
+		c, err := os.ReadFile(authorized_principals_file)
+		if err != nil {
+			log.Fatalf("Reading principals file: %s", err)
+		}
+		p, err := gpsa.LoadAuthorizedPrincipals(c)
+		if err != nil {
+			log.Fatalf("Loading principals file: %s", err)
+		}
+		principals = append(principals, p...)
+	}
+	// Apply principal restrictions to all CA keys loaded so far
+	for i := range authKeys {
+		authKeys[i].Principals = principals
+	}
+
+	// Load authorized_keys
+	if len(authorized_keys_file) > 0 {
+		c, err := os.ReadFile(authorized_keys_file)
+		if err != nil {
+			log.Fatalf("Reading authorized keys: %s", err)
+		}
+		ak, err := gpsa.LoadAuthorizedKeys(c)
+		if err != nil {
+			log.Fatalf("Loading authorized keys: %s", err)
+		}
+		authKeys = append(authKeys, ak...)
+	}
+
+	agent, closer, err := gpsa.GetAgentFromEnv()
 	defer closer()
 	if err != nil {
 		log.Fatalf("GetAgentFromEnv: %v", err)
 	}
-	a := gopamsshagentauth.AgentAuth{
+	a := gpsa.AgentAuth{
 		Agent:          agent,
-		AuthorizedKeys: ak,
+		AuthorizedKeys: authKeys,
 	}
 
 	candidates, err := a.FilterCandidates()
