@@ -38,7 +38,15 @@ func TestFilterCandidates(t *testing.T) {
 		ValidBefore:     ssh.CertTimeInfinity,
 		CertType:        ssh.UserCert,
 	}
-	user1_cert_by_ca.SignCert(rand.Reader, testSigners["ca"])
+	require.NoError(t, user1_cert_by_ca.SignCert(rand.Reader, testSigners["ca"]))
+	user1_cert_by_ca_no_principals := &ssh.Certificate{
+		ValidPrincipals: []string{},
+		Key:             testPublicKeys["user1"],
+		SignatureKey:    testPublicKeys["ca"],
+		ValidBefore:     ssh.CertTimeInfinity,
+		CertType:        ssh.UserCert,
+	}
+	require.NoError(t, user1_cert_by_ca_no_principals.SignCert(rand.Reader, testSigners["ca"]))
 	user1_cert_unsigned := &ssh.Certificate{
 		ValidPrincipals: []string{"user1", "sudoer"},
 		Key:             testPublicKeys["user1"],
@@ -68,19 +76,19 @@ func TestFilterCandidates(t *testing.T) {
 		{
 			name:             "one agent cert, matching authorized CA, one candidate",
 			agentKeys:        []agent.AddedKey{{PrivateKey: testPrivateKeys["user1"], Certificate: user1_cert_by_ca}},
-			authorizedKeys:   []gpsa.AuthorizedKey{{Key: testPublicKeys["ca"], CertAuthority: true}},
+			authorizedKeys:   []gpsa.AuthorizedKey{{Key: testPublicKeys["ca"], CertAuthority: true, Principals: []string{"sudoer"}}},
 			expectCandidates: []ssh.PublicKey{user1_cert_by_ca},
 		},
 		{
 			name:             "one unsigned agent cert, matching authorized CA, no candidates",
 			agentKeys:        []agent.AddedKey{{PrivateKey: testPrivateKeys["user1"], Certificate: user1_cert_unsigned}},
-			authorizedKeys:   []gpsa.AuthorizedKey{{Key: testPublicKeys["ca"], CertAuthority: true}},
+			authorizedKeys:   []gpsa.AuthorizedKey{{Key: testPublicKeys["ca"], CertAuthority: true, Principals: []string{"sudoer"}}},
 			expectCandidates: []ssh.PublicKey{},
 		},
 		{
 			name:             "one agent cert, mismatched authorized CA, no candidates",
 			agentKeys:        []agent.AddedKey{{PrivateKey: testPrivateKeys["user1"], Certificate: user1_cert_unsigned}},
-			authorizedKeys:   []gpsa.AuthorizedKey{{Key: testPublicKeys["ed25519"], CertAuthority: true}},
+			authorizedKeys:   []gpsa.AuthorizedKey{{Key: testPublicKeys["ed25519"], CertAuthority: true, Principals: []string{"sudoer"}}},
 			expectCandidates: []ssh.PublicKey{},
 		},
 		{
@@ -89,6 +97,35 @@ func TestFilterCandidates(t *testing.T) {
 			authorizedKeys:   []gpsa.AuthorizedKey{{Key: testPublicKeys["ca"], CertAuthority: false}},
 			expectCandidates: []ssh.PublicKey{},
 		},
+		{
+			name:             "one agent cert, matching authorized CA, mismatched principals, no candidate",
+			agentKeys:        []agent.AddedKey{{PrivateKey: testPrivateKeys["user1"], Certificate: user1_cert_by_ca}},
+			authorizedKeys:   []gpsa.AuthorizedKey{{Key: testPublicKeys["ca"], CertAuthority: true, Principals: []string{"admin"}}},
+			expectCandidates: []ssh.PublicKey{},
+		},
+		{
+			// A principal-less cert can impersonate all
+			// principals, cf PROTOCOL.certkeys
+			name:             "one agent cert without principals, matching authorized CA but expecting a principal, one candidate",
+			agentKeys:        []agent.AddedKey{{PrivateKey: testPrivateKeys["user1"], Certificate: user1_cert_by_ca_no_principals}},
+			authorizedKeys:   []gpsa.AuthorizedKey{{Key: testPublicKeys["ca"], CertAuthority: true, Principals: []string{"sudoer"}}},
+			expectCandidates: []ssh.PublicKey{user1_cert_by_ca_no_principals},
+		},
+		{
+			// If we're not expecting any principals, only
+			// principal-less certs are accepted
+			name:             "one agent cert without principals, matching authorized CA not expecting a principal, no candidates",
+			agentKeys:        []agent.AddedKey{{PrivateKey: testPrivateKeys["user1"], Certificate: user1_cert_by_ca_no_principals}},
+			authorizedKeys:   []gpsa.AuthorizedKey{{Key: testPublicKeys["ca"], CertAuthority: true, Principals: []string{}}},
+			expectCandidates: []ssh.PublicKey{user1_cert_by_ca_no_principals},
+		},
+		{
+			name:             "one agent cert with princials, matching authorized CA expecting no principals, no candidate",
+			agentKeys:        []agent.AddedKey{{PrivateKey: testPrivateKeys["user1"], Certificate: user1_cert_by_ca}},
+			authorizedKeys:   []gpsa.AuthorizedKey{{Key: testPublicKeys["ca"], CertAuthority: true, Principals: []string{}}},
+			expectCandidates: []ssh.PublicKey{},
+		},
+
 	}
 	// Generate test cases for each private/public key loaded from
 	// testdata.

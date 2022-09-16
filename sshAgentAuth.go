@@ -93,21 +93,17 @@ func (a AgentAuth) attemptCandidate(k *agent.Key) bool {
 	// as a Certificate if it's of a certificate type.
 	parsedKey, err := ssh.ParsePublicKey(k.Marshal())
 	if err != nil {
-		log.Printf("Can't unmarshal agent key %v, skipping", k)
+		log.Printf("Can't unmarshal agent key %.40v, (err: %v) skipping", k, err)
 		return false
 	}
-
-	c := FakeConn{user: "sudoer"} // TODO
 
 	for _, sk := range a.AuthorizedKeys {
 		//log.Printf("attempting agent key %v against server key %v", parsedKey, sk)
 		checker := ssh.CertChecker{
 			IsUserAuthority: func(k ssh.PublicKey) bool {
-				log.Printf("in IsUserauthority")
 				return bytes.Equal(k.Marshal(), sk.Key.Marshal())
 			},
 			UserKeyFallback: func(_ ssh.ConnMetadata, k ssh.PublicKey) (*ssh.Permissions, error) {
-				log.Printf("in UserKeyfallback")
 				if bytes.Equal(k.Marshal(), sk.Key.Marshal()) {
 					return nil, nil
 				} else {
@@ -117,17 +113,38 @@ func (a AgentAuth) attemptCandidate(k *agent.Key) bool {
 			// TODO isRevoked
 		}
 
-		perms, err := checker.Authenticate(&c, parsedKey)
-		if err != nil {
-			log.Printf("checker.Authenticate: %v, skipping", err)
-			continue
+		// If no principals are expected, the only valid certs
+		// are those valid for all principals (i.e. with an
+		// empty valid_principals field)
+		accepted := false
+		if len(sk.Principals) == 0 {
+			c := FakeConn{user: ""} // the empty principal is not a valid principal
+			perms, err := checker.Authenticate(&c, parsedKey)
+			if err != nil {
+				log.Printf("checker.Authenticate: %v, skipping", err)
+			} else if perms != nil && len(perms.CriticalOptions) > 0 {
+				log.Printf("certificate has unsupported CriticalOptions, skipping")
+			} else {
+				accepted = true
+			}
+		} else {
+			for _, p := range sk.Principals {
+				c := FakeConn{user: p}
+				perms, err := checker.Authenticate(&c, parsedKey)
+				if err != nil {
+					log.Printf("checker.Authenticate: %v, skipping", err)
+					continue
+				} else if perms != nil && len(perms.CriticalOptions) > 0 {
+					log.Printf("certificate has unsupported CriticalOptions, skipping")
+					continue
+				} else {
+					accepted = true
+				}
+			}
 		}
-		if perms != nil && len(perms.CriticalOptions) > 0 {
-			log.Printf("certificate has unsupported CriticalOptions, skipping")
-			continue
+		if accepted {
+			return true
 		}
-		// This authorized_key accepts this agent key!
-		return true
 	}
 	// No authorized_key matched this agent key
 	return false
@@ -138,13 +155,12 @@ func (a AgentAuth) attemptCandidate(k *agent.Key) bool {
 func (a AgentAuth) FilterCandidates() ([]*agent.Key, error) {
 	var candidates []*agent.Key
 	keys, err := a.Agent.List()
-	log.Printf("keys: %v, err: %v", keys, err)
 	if err != nil {
 		return nil, err
 	}
 	for i, k := range keys {
 		// TODO limit to max auth attempts
-		log.Printf("Agent offers key %v type:%v goType:%v value:[%v]", i, k.Type(), reflect.TypeOf(k), k)
+		log.Printf("Agent offers key %v type:%v goType:%v value:[%.40v]", i, k.Type(), reflect.TypeOf(k), k)
 		if a.attemptCandidate(k) {
 			candidates = append(candidates, k)
 		}
