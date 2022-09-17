@@ -36,8 +36,5 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *handle, int flags, int argc, co
 }
 
 PAM_EXTERN int pam_sm_setcred(pam_handle_t *pamh, int flags, int argc, const char **argv) {
-  // We could have many more information of the user other then
-  // password and username. These are the credentials. For example, a
-  // kerberos ticket. Here we establish those and make them visible to
-  // the application
+  return PAM_IGNORE;
 }

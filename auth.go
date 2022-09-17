@@ -8,7 +8,9 @@ import (
 	"golang.org/x/crypto/ssh/agent"
 	"log"
 	"net"
+	"os"
 	"reflect"
+	"strings"
 	"time"
 )
 
@@ -21,6 +23,76 @@ type AuthorizedKey struct {
 type AgentAuth struct {
 	Agent          agent.Agent
 	AuthorizedKeys []AuthorizedKey
+	Close          func()
+}
+
+func NewAgentAuthOrDie(
+	authorized_keys_file string,
+	ca_keys_file string,
+	authorized_principals string,
+	authorized_principals_file string) AgentAuth {
+	if len(ca_keys_file) == 0 && (len(authorized_principals_file) > 0 || len(authorized_principals) > 0) {
+		log.Fatalf("Invalid usage: authorized principals require a CA to be set")
+	}
+	if len(ca_keys_file) == 0 && len(authorized_keys_file) == 0 {
+		log.Printf("Warning: no authorized keys nor trusted CA, no identity will be accepted")
+	}
+
+	// Load ca_keys
+	var authKeys []AuthorizedKey
+	if len(ca_keys_file) > 0 {
+		c, err := os.ReadFile(ca_keys_file)
+		if err != nil {
+			log.Fatalf("Reading CA keys: %s", err)
+		}
+		authKeys, err = LoadUserCAKeys(c)
+		if err != nil {
+			log.Fatalf("Loading CA keys: %s", err)
+		}
+	}
+	var principals []string
+	if len(authorized_principals) > 0 {
+		principals = strings.Split(authorized_principals, ",")
+	}
+	if len(authorized_principals_file) > 0 {
+		c, err := os.ReadFile(authorized_principals_file)
+		if err != nil {
+			log.Fatalf("Reading principals file: %s", err)
+		}
+		p, err := LoadAuthorizedPrincipals(c)
+		if err != nil {
+			log.Fatalf("Loading principals file: %s", err)
+		}
+		principals = append(principals, p...)
+	}
+	// Apply principal restrictions to all CA keys loaded so far
+	for i := range authKeys {
+		authKeys[i].Principals = principals
+	}
+
+	// Load authorized_keys
+	if len(authorized_keys_file) > 0 {
+		c, err := os.ReadFile(authorized_keys_file)
+		if err != nil {
+			log.Fatalf("Reading authorized keys: %s", err)
+		}
+		ak, err := LoadAuthorizedKeys(c)
+		if err != nil {
+			log.Fatalf("Loading authorized keys: %s", err)
+		}
+		authKeys = append(authKeys, ak...)
+	}
+
+	agent, closer, err := GetAgentFromEnv()
+	if err != nil {
+		log.Fatalf("GetAgentFromEnv: %v", err)
+	}
+	a := AgentAuth{
+		Agent:          agent,
+		AuthorizedKeys: authKeys,
+		Close:          closer,
+	}
+	return a
 }
 
 type FakeConn struct {
