@@ -26,5 +26,6 @@ in mkShell {
     libpam-wrapper
     linux-pam
     pam-test
+    pkg-config
   ];
 }

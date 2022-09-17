@@ -31,7 +31,7 @@ function run_command() {
 	colorecho 2 "== PASS: $*"
 }
 
-TOOL=$(pwd)/main
+TOOL=${1?}
 
 # This should be run as: `ssh-agent ./test.sh`. Check that we have an
 # agent and that it's empty.
@@ -90,4 +90,4 @@ run_command 1 $TOOL -c ca1.pub -P ./good_principals
 run_command 1 $TOOL -c ca1.pub -P ./other_principals
 
 colorecho 2 '=='
-colorecho 2 '== All tests passed!'
+colorecho 2 '== All CLI tests passed!'
