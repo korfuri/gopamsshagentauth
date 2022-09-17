@@ -1,0 +1,9 @@
+# Account management.
+account required /nix/store/lp35dkcnis993s0wxqwhd1mr7l7irxvc-libpam-wrapper-1.1.3/lib/pam_wrapper/pam_matrix.so passdb=/home/korfuri/ssh-ca-nixos-test/ingo/pam/passdb verbose
+
+# Authentication management.
+auth sufficient /home/korfuri/ssh-ca-nixos-test/ingo/pam/libpam_ssh_agent_auth.so authorized_keys=./foo
+auth required /nix/store/lp35dkcnis993s0wxqwhd1mr7l7irxvc-libpam-wrapper-1.1.3/lib/pam_wrapper/pam_matrix.so passdb=/home/korfuri/ssh-ca-nixos-test/ingo/pam/passdb verbose
+
+password required /nix/store/lp35dkcnis993s0wxqwhd1mr7l7irxvc-libpam-wrapper-1.1.3/lib/pam_wrapper/pam_matrix.so passdb=/home/korfuri/ssh-ca-nixos-test/ingo/pam/passdb verbose
+session required /nix/store/lp35dkcnis993s0wxqwhd1mr7l7irxvc-libpam-wrapper-1.1.3/lib/pam_wrapper/pam_matrix.so passdb=/home/korfuri/ssh-ca-nixos-test/ingo/pam/passdb verbose

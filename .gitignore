@@ -81,3 +81,4 @@ go.work
 
 # End of https://www.toptal.com/developers/gitignore/api/go,emacs
 cli/main
+pam/libpam_ssh_agent_auth.h
