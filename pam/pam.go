@@ -3,16 +3,34 @@ package main
 // #cgo LDFLAGS: -lpam
 // #include <security/pam_modules.h>
 // #include <security/pam_appl.h>
+// #include <sys/types.h>
 import "C"
 
 import (
 	"flag"
+	"fmt"
+	"log/syslog"
+	"syscall"
+	"os"
 
 	gpsa "github.com/korfuri/gopamsshagentauth"
 )
 
+func log(format string, args ...interface{}) {
+	l, err := syslog.New(syslog.LOG_AUTH|syslog.LOG_WARNING, "gopamsshagentauth")
+	if err != nil {
+		return
+	}
+	l.Warning(fmt.Sprintf(format, args...))
+}
+
+//export c_log
+func c_log(c *C.char) {
+	log(C.GoString(c))
+}
+
 //export authenticate
-func authenticate(pamhandle *C.pam_handle_t, pamflags C.int, argv []string) C.int {
+func authenticate(pamhandle *C.pam_handle_t, uid C.uid_t, gid C.uid_t, argv []string) C.int {
 	var cfg gpsa.AgentAuthConfig
 	flags := flag.NewFlagSet("gopamsshagentauth", flag.PanicOnError)
 	flags.StringVar(&cfg.AuthorizedKeysFile, "authorized_keys_file", "", "path to an authorized_keys file")
@@ -25,31 +43,65 @@ func authenticate(pamhandle *C.pam_handle_t, pamflags C.int, argv []string) C.in
 		argv[i] = "--" + argv[i]
 	}
 	if err := flags.Parse(argv); err != nil {
+		log("%s", err)
 		return C.PAM_SERVICE_ERR
 	}
 
-	a, err := gpsa.NewAgentAuth(cfg) // TODO we must drop euid here!
+	// Load the configuration before dropping privileges. This is
+	// important because the authorized_keys may not be readable by
+	// the requesting user.
+	a, err := gpsa.NewAgentAuth(cfg)
 	if err != nil {
-		return C.PAM_SERVICE_ERR // TODO should we make a difference
-		// between errors loading keys and errors opening the agent socket?
+		log("%s", err)
+		return C.PAM_SERVICE_ERR
 	}
-	defer a.Close()
+
+	// Now, drop privileges before accessing the agent socket. This is
+	// important because malicious user Mallory could point their
+	// SSH_AUTH_SOCK to Alice's agent socket and try to elevate
+	// privileges using Alice's keys.
+	origEUID := os.Geteuid()
+	origEGID := os.Getegid()
+	if os.Getuid() != origEUID || origEUID == 0 {
+		if err := syscall.Seteuid(int(uid)); err != nil {
+			log("failed to drop euid from %d to %d", origEUID, uid)
+			return C.PAM_AUTH_ERR
+		}
+		if err := syscall.Setegid(int(gid)); err != nil {
+			log("failed to drop egid from %d to %d", origEGID, gid)
+			return C.PAM_AUTH_ERR
+		}
+		defer func() {
+			if err := syscall.Seteuid(origEUID); err != nil {
+				log("failed to reset uid to %d", origEUID)
+			}
+			if err := syscall.Setegid(origEGID); err != nil {
+				log("failed to reset gid to %d", origEGID)
+			}
+		}()
+	}
+
+	agent, closer, err := gpsa.GetAgentFromEnv()
+	if err != nil {
+		log("%s", err)
+		return C.PAM_AUTH_ERR
+	}
+	defer closer()
+	a.Agent = agent
 
 	candidates, err := a.FilterCandidates()
 	if err != nil {
+		log("%s", err)
 		return C.PAM_AUTH_ERR
 	}
 
 	result, err := a.ChallengeKeys(candidates)
 	if err != nil {
+		log("%s", err)
 		return C.PAM_AUTH_ERR
 	}
 	if !result {
 		return C.PAM_AUTH_ERR
-	}
-
-	if err != nil {
-		return C.PAM_CONV_ERR
 	}
 	return C.PAM_SUCCESS
 }

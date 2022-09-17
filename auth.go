@@ -21,7 +21,6 @@ type AuthorizedKey struct {
 type AgentAuth struct {
 	Agent          agent.Agent
 	AuthorizedKeys []AuthorizedKey
-	Close          func()
 }
 
 type FakeConn struct {

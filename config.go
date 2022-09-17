@@ -67,14 +67,8 @@ func NewAgentAuth(cfg AgentAuthConfig) (*AgentAuth, error) {
 		authKeys = append(authKeys, ak...)
 	}
 
-	agent, closer, err := GetAgentFromEnv()
-	if err != nil {
-		return nil, fmt.Errorf("GetAgentFromEnv: %v", err)
-	}
 	a := &AgentAuth{
-		Agent:          agent,
 		AuthorizedKeys: authKeys,
-		Close:          closer,
 	}
 	return a, nil
 }
