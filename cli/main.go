@@ -23,7 +23,13 @@ func main() {
 	if err != nil {
 		log.Fatalf("NewAgentAuth: %s", err)
 	}
-	defer a.Close()
+
+	agent, closer, err := gpsa.GetAgentFromEnv()
+	if err != nil {
+		log.Fatalf("GetAgentFromEnv: %s", err)
+	}
+	defer closer()
+	a.Agent = agent
 
 	candidates, err := a.FilterCandidates()
 	if err != nil {
@@ -35,8 +41,8 @@ func main() {
 		log.Fatalf("challengeKeys: %v", err)
 	}
 	if !result {
-		log.Fatalf("Result: go away")
+		log.Fatalf("Authentication failed")
 	} else {
-		log.Printf("Result: welcome")
+		log.Printf("Authentication succeeded")
 	}
 }
