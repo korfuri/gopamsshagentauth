@@ -56,7 +56,7 @@ func (a AgentAuth) attemptCandidate(k *agent.Key) bool {
 		//log.Printf("attempting agent key %v against server key %v", parsedKey, sk)
 		checker := ssh.CertChecker{
 			IsUserAuthority: func(k ssh.PublicKey) bool {
-				return bytes.Equal(k.Marshal(), sk.Key.Marshal())
+				return bytes.Equal(k.Marshal(), sk.Key.Marshal()) && sk.CertAuthority
 			},
 			UserKeyFallback: func(_ ssh.ConnMetadata, k ssh.PublicKey) (*ssh.Permissions, error) {
 				if bytes.Equal(k.Marshal(), sk.Key.Marshal()) {
