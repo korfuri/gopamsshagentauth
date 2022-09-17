@@ -20,4 +20,3 @@ Currently, the project is not working. Here's the TODO list:
 * Write integration tests [half-done!]
 * Write proper usage documentation
 * Get this reviewed by folks who know what they're doing
-
