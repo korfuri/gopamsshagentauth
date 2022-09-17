@@ -7,6 +7,7 @@ import (
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/agent"
 	"log"
+	"math/rand"
 	"net"
 	"reflect"
 	"time"
@@ -131,7 +132,10 @@ func (a AgentAuth) FilterCandidates() ([]*agent.Key, error) {
 func (a AgentAuth) ChallengeKeys(candidates []*agent.Key) (bool, error) {
 	for _, k := range candidates {
 		log.Printf("verifying agent key [%.40v]", k)
-		challenge := []byte("hello world") // TODO
+		challenge := make([]byte, 1024)
+		if _, err := rand.Read(challenge); err != nil {
+			return false, err
+		}
 		sig, err := a.Agent.Sign(k, challenge)
 		if err != nil {
 			return false, err
