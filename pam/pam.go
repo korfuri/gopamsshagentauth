@@ -6,21 +6,20 @@ package main
 import "C"
 
 import (
-	"fmt"
 	"flag"
+	"fmt"
 	"log"
 	"unsafe"
 
 	gpsa "github.com/korfuri/gopamsshagentauth"
 )
 
-
 type PamHandle struct {
 	p unsafe.Pointer
 }
 
 func (p PamHandle) ptr() *C.pam_handle_t {
-	return (*C.pam_handle_t)(p.p);
+	return (*C.pam_handle_t)(p.p)
 }
 
 func getHandle(h *C.pam_handle_t) PamHandle {
@@ -31,19 +30,12 @@ func getHandle(h *C.pam_handle_t) PamHandle {
 func authenticate(handle *C.pam_handle_t, pamflags C.int, argv []string) C.int {
 	fmt.Printf("authenticate: %v", argv)
 
-	var (
-		authorized_keys_file       string
-		ca_keys_file               string
-		authorized_principals      string
-		authorized_principals_file string
-	)
-
-
+	var cfg gpsa.AgentAuthConfig
 	flags := flag.NewFlagSet("gopamsshagentauth", flag.PanicOnError)
-	flags.StringVar(&authorized_keys_file, "authorized_keys_file", "", "path to an authorized_keys file")
-	flags.StringVar(&ca_keys_file, "ca_keys_file", "", "path to a TrustedUserCAKeys file")
-	flags.StringVar(&authorized_principals, "authorized_principals", "", "comma-separated list of authorized principals")
-	flags.StringVar(&authorized_principals_file, "authorized_principals_file", "", "path to a file containing a list of authorized principals")
+	flags.StringVar(&cfg.AuthorizedKeysFile, "authorized_keys_file", "", "path to an authorized_keys file")
+	flags.StringVar(&cfg.CAKeysFile, "ca_keys_file", "", "path to a TrustedUserCAKeys file")
+	flags.StringVar(&cfg.AuthorizedPrincipals, "authorized_principals", "", "comma-separated list of authorized principals")
+	flags.StringVar(&cfg.AuthorizedPrincipalsFile, "authorized_principals_file", "", "path to a file containing a list of authorized principals")
 
 	for i := range argv {
 		argv[i] = "--" + argv[i]
@@ -51,9 +43,12 @@ func authenticate(handle *C.pam_handle_t, pamflags C.int, argv []string) C.int {
 	if err := flags.Parse(argv); err != nil {
 		log.Fatalf("unable to parse flags")
 	}
-	
-	a := gpsa.NewAgentAuthOrDie(authorized_keys_file, ca_keys_file, authorized_principals, authorized_principals_file)
-	
+
+	a, err := gpsa.NewAgentAuth(cfg)
+	if err != nil {
+		log.Fatalf("NewAgentAuth: %s", err)
+	}
+
 	defer a.Close()
 
 	candidates, err := a.FilterCandidates()
