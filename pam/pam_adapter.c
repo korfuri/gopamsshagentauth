@@ -42,7 +42,6 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *handle, int flags, int argc, co
   // We probably shouldnt getpwnam here, we should be asking PAM for
   // the uid & gid of the target user rather than the username
   struct passwd* pw = getpwnam(username);
-  free((void*)username);
   if (pw == NULL) {
 	c_log("failed getpwnam");
 	return PAM_USER_UNKNOWN;
