@@ -3,13 +3,13 @@ with pkgs;
 let
   pam-test = pkgs.stdenv.mkDerivation {
     pname = "pam-test";
-    version = "0.2019.11.11.0";
+    version = "0.2022.09.17.1";
 
     src = fetchFromGitHub {
-      owner = "pbrezina";
+      owner = "korfuri";
       repo = "pam-test";
-      rev = "1f8270a82e91a7dff98365d7db8200b71eae61de";
-      sha256 = "sha256-7JZwTlCpAugyFDAAplhhWn8h3Z3VQFRK7mbXGvRraYc=";
+      rev = "99093e7b718686865ee09dd2acee543e838bba6b";
+      sha256 = "sha256-ApfEOlBtgo3xw2mgGU2no7HyecjCY7z8OMs18Sne4DE=";
     };
 
     installPhase = ''
