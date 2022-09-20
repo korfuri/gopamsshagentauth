@@ -17,6 +17,8 @@ function fail() {
 	exit 1
 }
 
+echo '== Test suite for go_pam_ssh_agent_auth.so'
+
 # This should be run as: `ssh-agent ./test_pam.sh`. Check that we have
 # an agent and that it's empty.
 ssh-add -l -q 2>&1 | grep -q 'The agent has no identities.' || fail "Run this under ssh-agent"

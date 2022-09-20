@@ -28,8 +28,7 @@ test_go:
 test_cli: cli/test.sh go_pam_ssh_agent_auth_cli
 	ssh-agent ./cli/test.sh "$(shell pwd)/go_pam_ssh_agent_auth_cli"
 
-TESTDATA=$(shell find testdata -type f)
-test_pam: go_pam_ssh_agent_auth.so test_pam.sh $(TESTDATA)
+test_pam: go_pam_ssh_agent_auth.so test_pam.sh
 	ssh-agent ./test_pam.sh
 
 test: test_go test_cli test_pam
