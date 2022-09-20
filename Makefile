@@ -17,6 +17,9 @@ go_pam_ssh_agent_auth.h: go_pam_ssh_agent_auth.so
 go_pam_ssh_agent_auth_cli: $(SRCS) cli/main.go
 	go build -o go_pam_ssh_agent_auth_cli ./cli
 
+cli: go_pam_ssh_agent_auth_cli
+so: go_pam_ssh_agent_auth.so
+
 all: go_pam_ssh_agent_auth_cli go_pam_ssh_agent_auth.so
 
 clean:
@@ -33,5 +36,5 @@ test_pam: go_pam_ssh_agent_auth.so test_pam.sh
 
 test: test_go test_cli test_pam
 
-.PHONY: all clean test test_go test_pam
+.PHONY: all clean test test_go test_pam cli so
 .DEFAULT: go_pam_ssh_agent_auth.so
