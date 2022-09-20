@@ -8,8 +8,8 @@ let
     src = fetchFromGitHub {
       owner = "korfuri";
       repo = "pam-test";
-      rev = "99093e7b718686865ee09dd2acee543e838bba6b";
-      sha256 = "sha256-ApfEOlBtgo3xw2mgGU2no7HyecjCY7z8OMs18Sne4DE=";
+      rev = "f734749de8ac6cb59a40297e6f614d6e6b475d67";
+      sha256 = "sha256-/DRtu4yE0lcrCF5Rb9m7bILQKRRm40GbR/iM0MjXGtE=";
     };
 
     installPhase = ''

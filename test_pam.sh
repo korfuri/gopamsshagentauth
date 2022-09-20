@@ -51,6 +51,7 @@ function run_test() {
 	want=$2
 	shift 2
 	pamopts="$*"
+	colorecho 2 "== RUN test [$desc]"
 	cat >pam.d/pam_test <<EOF
 account required ${PAM_MATRIX_SO?} passdb=${PASSDB?}
 auth required ${PAM_SSH_AGENT_AUTH_SO?} ${pamopts?}
@@ -64,6 +65,7 @@ EOF
 	LD_PRELOAD="${PAM_WRAPPER_SO?}" pam_test auth user1
 	result=$?
 	[[ $result -eq $want ]] || fail "Test [$desc] should have returned $want, returned $result"
+	colorecho 2 "== PASS test [$desc]"
 }
 
 ssh-keygen -q -N "" -t ed25519 -f ./user1
